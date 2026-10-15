@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Naser Orderly'),
+    'name' => env('APP_NAME', 'Naser Store'),
 
     /*
     |--------------------------------------------------------------------------
