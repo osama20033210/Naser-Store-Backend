@@ -10,7 +10,7 @@ class StaffAccount
 {
     public function handle(Request $request, Closure $next): Response
     {
-        abort_unless($request->user()->account_type === 'staff', 403, 'Employee access is required.');
+        abort_unless($request->user()->account_type === 'staff', 404, 'Not found.');
 
         return $next($request);
     }
