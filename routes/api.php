@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductImageController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\StoreAccountController;
 use App\Http\Controllers\StoreCatalogController;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::prefix('store')->middleware('throttle:store')->group(function () {
+        Route::get('product-images/{filename}', ProductImageController::class)->where('filename', '[0-9a-f-]{36}\.(jpg|png|webp)');
         Route::get('categories', [StoreCatalogController::class, 'categories']);
         Route::get('products', [StoreCatalogController::class, 'products']);
         Route::get('products/{product}', [StoreCatalogController::class, 'product'])->whereNumber('product');

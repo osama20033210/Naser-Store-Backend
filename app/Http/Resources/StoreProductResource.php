@@ -12,6 +12,7 @@ class StoreProductResource extends JsonResource
         return [
             'id' => $this->id, 'name' => $this->name, 'sku' => $this->sku,
             'description' => $this->description, 'price_minor' => $this->price_minor,
+            'image_url' => $this->image_path ? '/api/v1/store/product-images/'.basename($this->image_path) : null,
             'in_stock' => $this->stock > 0, 'max_order_quantity' => min($this->stock, 100000),
             'category' => new CategoryResource($this->whenLoaded('category')),
         ];
