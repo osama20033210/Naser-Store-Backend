@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ListRequest;
 use App\Http\Requests\StoreCartRequest;
+use App\Http\Requests\StoreProductListRequest;
 use App\Http\Resources\CategoryResource;
 use App\Http\Resources\StoreProductResource;
 use App\Models\Category;
@@ -22,7 +23,7 @@ class StoreCatalogController extends Controller
         return CategoryResource::collection($query->orderBy('name')->paginate($request->integer('per_page', 100)));
     }
 
-    public function products(ListRequest $request)
+    public function products(StoreProductListRequest $request)
     {
         $query = Product::query()->with('category')->where('active', true);
         if ($q = $request->validated('q')) {
@@ -30,6 +31,15 @@ class StoreCatalogController extends Controller
         }
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->integer('category_id'));
+        }
+        if ($request->filled('min_price_minor')) {
+            $query->where('price_minor', '>=', $request->validated('min_price_minor'));
+        }
+        if ($request->filled('max_price_minor')) {
+            $query->where('price_minor', '<=', $request->validated('max_price_minor'));
+        }
+        if ($request->has('in_stock')) {
+            $query->where('stock', $request->boolean('in_stock') ? '>' : '=', 0);
         }
         $sort = $request->validated('sort', 'name');
         if (! in_array($sort, ['name', 'price_minor', 'created_at'], true)) {
