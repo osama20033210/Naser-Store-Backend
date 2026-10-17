@@ -24,6 +24,10 @@ class InventoryController extends Controller
 
     public function adjust(InventoryRequest $request, Product $product, InventoryService $inventory): ProductResource
     {
+        if ($key = $request->validated('adjustment_key')) {
+            return new ProductResource($inventory->adjustOnce($product->id, (int) $request->validated('quantity_change'), $request->validated('reason'), $request->user()->id, $key));
+        }
+
         return new ProductResource($inventory->adjust($product->id, (int) $request->validated('quantity_change'), $request->validated('reason'), $request->user()->id));
     }
 }

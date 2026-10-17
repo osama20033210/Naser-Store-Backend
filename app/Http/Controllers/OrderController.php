@@ -27,7 +27,7 @@ class OrderController extends Controller
         Gate::authorize('viewAny', Order::class);
         $query = Order::query()->with('customer');
         if ($q = $request->validated('q')) {
-            $query->where(fn ($query) => $query->where('number', 'ilike', '%'.$q.'%')->orWhereHas('customer', fn ($customer) => $customer->where('name', 'ilike', '%'.$q.'%')));
+            $query->where(fn ($query) => $query->whereRaw('CAST(number AS TEXT) ILIKE ?', ['%'.$q.'%'])->orWhereHas('customer', fn ($customer) => $customer->where('name', 'ilike', '%'.$q.'%')));
         }
         if ($request->has('status')) {
             $query->where('status', $request->validated('status'));

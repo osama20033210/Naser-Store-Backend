@@ -21,6 +21,7 @@ class OrderRequest extends FormRequest
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:100000'],
             'discount_minor' => ['sometimes', 'integer', 'min:0', 'max:1000000000000000'],
             'notes' => ['nullable', 'string', 'max:5000'],
+            'checkout_key' => ['sometimes', 'uuid'],
         ];
     }
 }

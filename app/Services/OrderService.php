@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class OrderService
 {
@@ -21,7 +22,24 @@ class OrderService
     public function create(array $data, int $userId): Order
     {
         return DB::transaction(function () use ($data, $userId) {
-            $customer = Customer::findOrFail($data['customer_id']);
+            $customer = null;
+            if (($data['channel'] ?? 'staff') === 'staff' && isset($data['checkout_key'])) {
+                // The same intent has the same customer; match the storefront's lock order.
+                $customer = Customer::query()->lockForUpdate()->findOrFail($data['customer_id']);
+                $data['checkout_fingerprint'] = hash('sha256', json_encode([
+                    'customer_id' => (int) $data['customer_id'],
+                    'items' => collect($data['items'])->sortBy('product_id')->map(fn ($item) => ['product_id' => (int) $item['product_id'], 'quantity' => (int) $item['quantity']])->values()->all(),
+                    'discount_minor' => (int) ($data['discount_minor'] ?? 0),
+                    'notes' => $data['notes'] ?? null,
+                ], JSON_THROW_ON_ERROR));
+                $existing = Order::query()->where('created_by', $userId)->where('checkout_key', $data['checkout_key'])->first();
+                if ($existing) {
+                    abort_unless($existing->channel === 'staff' && is_string($existing->checkout_fingerprint) && hash_equals($existing->checkout_fingerprint, $data['checkout_fingerprint']), 409, 'This checkout key was already used for a different request.');
+
+                    return $existing->load(['customer', 'items']);
+                }
+            }
+            $customer ??= Customer::findOrFail($data['customer_id']);
             $items = collect($data['items'])->sortBy('product_id');
             $products = Product::query()->whereIn('id', $items->pluck('product_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $subtotal = 0;
@@ -98,7 +116,7 @@ class OrderService
             $customer = $user->customer()->lockForUpdate()->firstOrFail();
             $existing = Order::query()->where('created_by', $user->id)->where('checkout_key', $data['checkout_key'])->first();
             if ($existing) {
-                abort_unless(hash_equals($existing->checkout_fingerprint, $fingerprint), 409, 'This checkout key was already used for a different request.');
+                abort_unless($existing->channel === 'storefront' && is_string($existing->checkout_fingerprint) && hash_equals($existing->checkout_fingerprint, $fingerprint), 409, 'This checkout key was already used for a different request.');
 
                 return $existing->load(['customer', 'items']);
             }
@@ -146,6 +164,14 @@ class OrderService
 
     private function notify(Order $order, string $email): void
     {
-        Notification::route('mail', $email)->notify((new OrderUpdated($order->number, $order->status->value, $order->total_minor))->afterCommit());
+        $notification = new OrderUpdated($order->number, $order->status->value, $order->total_minor);
+        DB::afterCommit(function () use ($email, $notification) {
+            try {
+                Notification::route('mail', $email)->notify($notification->afterCommit());
+            } catch (Throwable $exception) {
+                // A queue/mail outage must not turn an already committed order into an HTTP failure.
+                report($exception);
+            }
+        });
     }
 }

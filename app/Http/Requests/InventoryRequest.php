@@ -13,6 +13,6 @@ class InventoryRequest extends FormRequest
 
     public function rules(): array
     {
-        return ['quantity_change' => ['required', 'integer', 'between:-1000000,1000000', 'not_in:0'], 'reason' => ['required', 'string', 'max:255']];
+        return ['quantity_change' => ['required', 'integer', 'between:-1000000,1000000', 'not_in:0'], 'reason' => ['required', 'string', 'max:255'], 'adjustment_key' => ['sometimes', 'uuid']];
     }
 }
