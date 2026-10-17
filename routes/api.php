@@ -12,10 +12,16 @@ use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\StoreAccountController;
 use App\Http\Controllers\StoreCatalogController;
 use App\Http\Controllers\StoreOrderController;
+use App\Http\Controllers\ProductGalleryController;
+use App\Http\Controllers\ProductPromotionController;
+use App\Http\Controllers\StoreContentController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::prefix('store')->middleware('throttle:store')->group(function () {
+        Route::get('settings', [StoreContentController::class, 'settings']);
+        Route::get('posts', [StoreContentController::class, 'posts']);
+        Route::get('posts/{slug}', [StoreContentController::class, 'post'])->where('slug', '[a-z0-9-]+');
         Route::get('product-images/{filename}', ProductImageController::class)->where('filename', '[0-9a-f-]{36}\.(jpg|png|webp)');
         Route::get('categories', [StoreCatalogController::class, 'categories']);
         Route::get('products', [StoreCatalogController::class, 'products']);
@@ -42,6 +48,19 @@ Route::prefix('v1')->group(function () {
                 Route::post('orders/{order}/cancel', [StoreOrderController::class, 'cancel'])->whereNumber('order');
             });
             Route::middleware('staff.account')->group(function () {
+                Route::prefix('storefront')->middleware('permission:storefront.manage')->group(function () {
+                    Route::get('settings', [StoreContentController::class, 'settings']);
+                    Route::put('settings', [StoreContentController::class, 'saveSettings']);
+                    Route::get('posts', [StoreContentController::class, 'index']);
+                    Route::post('posts', [StoreContentController::class, 'store']);
+                    Route::get('posts/{post}', [StoreContentController::class, 'show'])->whereNumber('post');
+                    Route::put('posts/{post}', [StoreContentController::class, 'update'])->whereNumber('post');
+                    Route::delete('posts/{post}', [StoreContentController::class, 'destroy'])->whereNumber('post');
+                    Route::put('products/{product}/promotion', [ProductPromotionController::class, 'update'])->whereNumber('product');
+                });
+                Route::post('products/{product}/images', [ProductGalleryController::class, 'store'])->whereNumber('product')->middleware('permission:products.update');
+                Route::put('products/{product}/images/order', [ProductGalleryController::class, 'reorder'])->whereNumber('product')->middleware('permission:products.update');
+                Route::delete('products/{product}/images/{image}', [ProductGalleryController::class, 'destroy'])->whereNumber('product')->whereNumber('image')->middleware('permission:products.update');
                 Route::get('dashboard', DashboardController::class)->middleware('permission:dashboard.view');
                 foreach (['categories' => [CategoryController::class, 'category'], 'products' => [ProductController::class, 'product'], 'customers' => [CustomerController::class, 'customer']] as $path => [$controller, $parameter]) {
                     Route::get($path, [$controller, 'index'])->middleware('permission:'.$path.'.view');

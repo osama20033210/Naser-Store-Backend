@@ -44,16 +44,18 @@ class OrderService
             $products = Product::query()->whereIn('id', $items->pluck('product_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $subtotal = 0;
             $snapshots = [];
+            $pricedAt = now();
             foreach ($items as $item) {
                 $product = $products->get($item['product_id']);
                 if (! $product || ! $product->active || $product->stock < $item['quantity']) {
                     throw ValidationException::withMessages(['items' => 'A product is unavailable or has insufficient stock.']);
                 }
-                $line = $product->price_minor * $item['quantity'];
+                $unitPrice = $product->sellingPrice($pricedAt);
+                $line = $unitPrice * $item['quantity'];
                 $subtotal += $line;
                 $snapshots[] = [
                     'product_id' => $product->id, 'sku' => $product->sku, 'name' => $product->name,
-                    'quantity' => $item['quantity'], 'unit_price_minor' => $product->price_minor, 'subtotal_minor' => $line,
+                    'quantity' => $item['quantity'], 'unit_price_minor' => $unitPrice, 'subtotal_minor' => $line,
                 ];
             }
             $discount = (int) ($data['discount_minor'] ?? 0);

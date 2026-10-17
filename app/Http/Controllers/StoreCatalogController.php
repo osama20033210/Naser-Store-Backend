@@ -25,7 +25,10 @@ class StoreCatalogController extends Controller
 
     public function products(StoreProductListRequest $request)
     {
-        $query = Product::query()->with('category')->where('active', true);
+        $query = Product::query()->with(['category', 'images'])->where('active', true);
+        $at = now()->utc();
+        $price = Product::sellingPriceExpression();
+        $query->select('products.*')->selectRaw($price.' AS store_price_minor', [$at, $at]);
         if ($q = $request->validated('q')) {
             $query->where(fn ($products) => $products->where('name', 'ilike', '%'.$q.'%')->orWhere('sku', 'ilike', '%'.$q.'%'));
         }
@@ -33,40 +36,46 @@ class StoreCatalogController extends Controller
             $query->where('category_id', $request->integer('category_id'));
         }
         if ($request->filled('min_price_minor')) {
-            $query->where('price_minor', '>=', $request->validated('min_price_minor'));
+            $query->whereRaw($price.' >= ?', [$at, $at, $request->validated('min_price_minor')]);
         }
         if ($request->filled('max_price_minor')) {
-            $query->where('price_minor', '<=', $request->validated('max_price_minor'));
+            $query->whereRaw($price.' <= ?', [$at, $at, $request->validated('max_price_minor')]);
         }
         if ($request->has('in_stock')) {
             $query->where('stock', $request->boolean('in_stock') ? '>' : '=', 0);
+        }
+        if ($request->has('on_sale')) {
+            $query->whereRaw($price.($request->boolean('on_sale') ? ' < price_minor' : ' = price_minor'), [$at, $at]);
         }
         $sort = $request->validated('sort', 'name');
         if (! in_array($sort, ['name', 'price_minor', 'created_at'], true)) {
             $sort = 'name';
         }
 
-        return StoreProductResource::collection($query->orderBy($sort, $request->validated('direction', 'asc'))->orderBy('id')->paginate($request->integer('per_page', 12)));
+        return StoreProductResource::collection($query->orderBy($sort === 'price_minor' ? 'store_price_minor' : $sort, $request->validated('direction', 'asc'))->orderBy('id')->paginate($request->integer('per_page', 12)));
     }
 
     public function product(int $product)
     {
-        return new StoreProductResource(Product::query()->with('category')->where('active', true)->findOrFail($product));
+        return new StoreProductResource(Product::query()->with(['category', 'images'])->where('active', true)->findOrFail($product));
     }
 
     /** An advisory live quote; checkout rechecks and locks stock before committing. */
     public function quote(StoreCartRequest $request)
     {
         $items = collect($request->validated('items'));
-        $products = Product::query()->with('category')->where('active', true)->whereIn('id', $items->pluck('product_id'))->get()->keyBy('id');
+        $products = Product::query()->with(['category', 'images'])->where('active', true)->whereIn('id', $items->pluck('product_id'))->get()->keyBy('id');
         $total = 0;
         $valid = true;
-        $lines = $items->map(function ($item) use ($products, &$total, &$valid) {
+        $pricedAt = now();
+        $lines = $items->map(function ($item) use ($products, $pricedAt, &$total, &$valid) {
             $product = $products->get($item['product_id']);
             $quantity = (int) $item['quantity'];
             $available = $product && $product->stock >= $quantity;
             $valid = $valid && $available;
-            $subtotal = $product ? $product->price_minor * $quantity : null;
+            $unitPrice = $product?->sellingPrice($pricedAt);
+            if ($product) $product->setAttribute('store_price_minor', $unitPrice);
+            $subtotal = $product ? $unitPrice * $quantity : null;
             $total += $subtotal ?? 0;
 
             return ['product_id' => (int) $item['product_id'], 'quantity' => $quantity, 'available' => (bool) $available,

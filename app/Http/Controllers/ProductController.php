@@ -52,7 +52,7 @@ class ProductController extends Controller
     {
         Gate::authorize('view', $product);
 
-        return new ProductResource($product->load('category'));
+        return new ProductResource($product->load(['category', 'images']));
     }
 
     public function update(ProductRequest $request, Product $product): ProductResource
@@ -68,9 +68,10 @@ class ProductController extends Controller
         DB::transaction(function () use ($product) {
             $record = Product::query()->lockForUpdate()->findOrFail($product->id);
             abort_if($record->orderItems()->exists() || $record->movements()->exists(), 409, 'Product has history. Deactivate it instead.');
-            $image = $record->image_path;
+            $images = $record->images()->pluck('path')->all();
+            $images[] = $record->image_path;
             $record->delete();
-            DB::afterCommit(fn () => $this->deleteImage($image));
+            DB::afterCommit(function () use ($images) { foreach ($images as $image) $this->deleteImage($image); });
         });
 
         return response()->noContent();
@@ -96,6 +97,7 @@ class ProductController extends Controller
                 $record = $id !== null ? Product::query()->lockForUpdate()->findOrFail($id) : new Product;
                 $previous = $record->image_path;
                 $record->fill($request->safe()->except(['image', 'remove_image']));
+                abort_if($record->sale_price_minor !== null && $record->sale_price_minor >= $record->price_minor, 422, 'Remove or lower the scheduled sale price before lowering the regular price.');
                 if ($uploaded !== null || $request->boolean('remove_image')) {
                     $record->image_path = $uploaded;
                 }

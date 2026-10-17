@@ -10,6 +10,7 @@ use Spatie\Permission\PermissionRegistrar;
 class RolePermissionSeeder extends Seeder
 {
     public const PERMISSIONS = [
+        'storefront.manage',
         'dashboard.view',
         'categories.view', 'categories.create', 'categories.update', 'categories.delete',
         'products.view', 'products.create', 'products.update', 'products.delete',
