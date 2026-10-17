@@ -2,18 +2,35 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ListRequest;
+use App\Http\Requests\StoreOrderListRequest;
 use App\Http\Requests\StoreCheckoutRequest;
 use App\Http\Resources\StoreOrderResource;
 use App\Services\OrderService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 class StoreOrderController extends Controller
 {
-    public function index(ListRequest $request)
+    public function index(StoreOrderListRequest $request)
     {
-        return StoreOrderResource::collection($request->user()->customer->orders()->latest('id')->paginate($request->integer('per_page', 15)));
+        $query = $request->user()->customer->orders();
+        $search = ltrim(trim((string) $request->validated('q', '')), '#');
+        if ($search !== '') {
+            $search = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
+            $query->whereRaw('CAST(number AS TEXT) ILIKE ?', ['%'.$search.'%']);
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->validated('status'));
+        }
+        if ($request->filled('date_from')) {
+            $query->where('created_at', '>=', CarbonImmutable::createFromFormat('!Y-m-d', $request->validated('date_from'), 'UTC'));
+        }
+        if ($request->filled('date_to')) {
+            $query->where('created_at', '<', CarbonImmutable::createFromFormat('!Y-m-d', $request->validated('date_to'), 'UTC')->addDay());
+        }
+
+        return StoreOrderResource::collection($query->latest('id')->paginate($request->integer('per_page', 15))->withQueryString());
     }
 
     public function store(StoreCheckoutRequest $request, OrderService $orders)
