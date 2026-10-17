@@ -18,16 +18,16 @@ class StoreOrderController extends Controller
         $search = ltrim(trim((string) $request->validated('q', '')), '#');
         if ($search !== '') {
             $search = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
-            $query->whereRaw('CAST(number AS TEXT) ILIKE ?', ['%'.$search.'%']);
+            $query->whereRaw('CAST(number AS TEXT) ILIKE ?', ['%' . $search . '%']);
         }
         if ($request->filled('status')) {
             $query->where('status', $request->validated('status'));
         }
         if ($request->filled('date_from')) {
-            $query->where('created_at', '>=', CarbonImmutable::createFromFormat('!Y-m-d', $request->validated('date_from'), 'UTC'));
+            $query->where('created_at', '>=', CarbonImmutable::createFromFormat('!Y-m-d', $request->validated('date_from'), 'Asia/Damascus')->utc());
         }
         if ($request->filled('date_to')) {
-            $query->where('created_at', '<', CarbonImmutable::createFromFormat('!Y-m-d', $request->validated('date_to'), 'UTC')->addDay());
+            $query->where('created_at', '<', CarbonImmutable::createFromFormat('!Y-m-d', $request->validated('date_to'), 'Asia/Damascus')->addDay()->utc());
         }
 
         return StoreOrderResource::collection($query->latest('id')->paginate($request->integer('per_page', 15))->withQueryString());
