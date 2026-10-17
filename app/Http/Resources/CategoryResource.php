@@ -9,6 +9,8 @@ class CategoryResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        return ['id' => $this->id, 'name' => $this->name, 'description' => $this->description, 'products_count' => $this->whenCounted('products')];
+        return ['id' => $this->id, 'name' => $this->name, 'description' => $this->description,
+            'image_url' => \App\Support\CatalogImages::category($this->name)['url'] ?? null,
+            'products_count' => $this->whenCounted('products')];
     }
 }

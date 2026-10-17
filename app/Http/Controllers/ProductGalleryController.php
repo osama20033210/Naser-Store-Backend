@@ -18,7 +18,7 @@ class ProductGalleryController extends Controller
         $request->validate(['image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp', 'max:2048', 'dimensions:min_width=1,min_height=1,max_width=4096,max_height=4096']]);
         $file = $request->file('image');
         $extension = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'][$file->getMimeType()];
-        $path = $file->storeAs('products', Str::uuid().'.'.$extension, 'local');
+        $path = $file->storeAs('products', Str::uuid().'.'.$extension, 'public');
         abort_unless($path, 500, 'Image storage failed.');
         try {
             $image = DB::transaction(function () use ($product, $path) {
@@ -65,7 +65,7 @@ class ProductGalleryController extends Controller
     private function cleanup(string $path): void
     {
         try {
-            if (! Storage::disk('local')->delete($path)) report(new \RuntimeException('Product image cleanup failed.'));
+            if (! Storage::disk('public')->delete($path)) report(new \RuntimeException('Product image cleanup failed.'));
         } catch (Throwable $error) { report($error); }
     }
 }

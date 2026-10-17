@@ -18,6 +18,8 @@ use App\Http\Controllers\StoreContentController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    Route::get('store/catalog-images/{filename}', \App\Http\Controllers\CatalogImageController::class)
+        ->where('filename', '[a-z0-9-]+\.jpg')->withoutMiddleware(\App\Http\Middleware\SecurityHeaders::class);
     Route::prefix('store')->middleware('throttle:store')->group(function () {
         Route::get('settings', [StoreContentController::class, 'settings']);
         Route::get('posts', [StoreContentController::class, 'posts']);

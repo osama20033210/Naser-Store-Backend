@@ -87,7 +87,7 @@ class ProductController extends Controller
                 'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp',
                 default => throw new RuntimeException('Unsupported product image.'),
             };
-            $uploaded = $file->storeAs('products', Str::uuid().'.'.$extension, 'local');
+            $uploaded = $file->storeAs('products', Str::uuid().'.'.$extension, 'public');
             if (! $uploaded) {
                 throw new RuntimeException('The product image could not be stored.');
             }
@@ -121,7 +121,7 @@ class ProductController extends Controller
             return;
         }
         try {
-            if (! Storage::disk('local')->delete($path)) {
+            if (! Storage::disk('public')->delete($path)) {
                 Log::warning('A superseded product image could not be removed.');
             }
         } catch (Throwable $exception) {
